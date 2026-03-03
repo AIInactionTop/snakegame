@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Snake Bros. - Nintendo Style</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --nes-black: #0f0f0f;
+    --nes-dark: #1a1a2e;
+    --nes-green: #6bbd5b;
+    --nes-green-dark: #3a7d32;
+    --nes-red: #e74c3c;
+    --nes-gold: #f5c842;
+    --nes-blue: #4a90d9;
+    --nes-purple: #9b59b6;
+    --nes-white: #f0f0e8;
+    --nes-gray: #8b8b8b;
+    --nes-bg: #92cc41;
+    --nes-border: #4a4a4a;
+  }
+
+  body {
+    background: var(--nes-dark);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+    image-rendering: pixelated;
+  }
+
+  #game-wrapper {
+    position: relative;
+    background: #2a2a3e;
+    border: 6px solid #555;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow:
+      0 0 0 3px #333,
+      0 0 0 6px #666,
+      0 8px 32px rgba(0,0,0,0.6),
+      inset 0 0 60px rgba(0,0,0,0.3);
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: #111;
+    border: 3px solid #444;
+    border-radius: 6px;
+    color: var(--nes-white);
+    font-size: 10px;
+  }
+
+  #hud .hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #hud .hud-label {
+    color: var(--nes-gray);
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+
+  #hud .hud-value {
+    color: var(--nes-gold);
+    font-size: 12px;
+  }
+
+  #hud .hud-value.speed-active {
+    color: var(--nes-blue);
+    animation: blink-fast 0.3s infinite;
+  }
+
+  #hud .hud-value.multi-active {
+    color: var(--nes-purple);
+    animation: blink-fast 0.5s infinite;
+  }
+
+  @keyframes blink-fast {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  #game-canvas {
+    display: block;
+    border: 4px solid #444;
+    border-radius: 4px;
+    background: #9bbc0f;
+    image-rendering: pixelated;
+  }
+
+  /* Title Screen */
+  #title-screen, #gameover-screen, #leaderboard-screen {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(15, 15, 15, 0.95);
+    z-index: 10;
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .hidden { display: none !important; }
+
+  .title-logo {
+    font-size: 20px;
+    color: var(--nes-gold);
+    text-shadow:
+      3px 3px 0 #c4960f,
+      -1px -1px 0 #fff8;
+    margin-bottom: 8px;
+    text-align: center;
+    line-height: 1.6;
+    animation: title-bounce 2s ease-in-out infinite;
+  }
+
+  @keyframes title-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .title-sub {
+    font-size: 9px;
+    color: var(--nes-green);
+    margin-bottom: 30px;
+    letter-spacing: 2px;
+  }
+
+  .menu-item {
+    font-size: 11px;
+    color: var(--nes-white);
+    padding: 10px 24px;
+    margin: 6px 0;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s;
+    border: none;
+    background: none;
+    font-family: 'Press Start 2P', monospace;
+    letter-spacing: 1px;
+  }
+
+  .menu-item:hover, .menu-item.selected {
+    color: var(--nes-gold);
+  }
+
+  .menu-item.selected::before {
+    content: '▶';
+    position: absolute;
+    left: 4px;
+    animation: cursor-blink 0.6s steps(2) infinite;
+  }
+
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .game-over-title {
+    font-size: 22px;
+    color: var(--nes-red);
+    margin-bottom: 10px;
+    text-shadow: 3px 3px 0 #8b0000;
+    animation: shake 0.4s ease-in-out;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  .final-score {
+    font-size: 14px;
+    color: var(--nes-gold);
+    margin-bottom: 6px;
+  }
+
+  .final-detail {
+    font-size: 8px;
+    color: var(--nes-gray);
+    margin-bottom: 20px;
+  }
+
+  .new-record {
+    font-size: 10px;
+    color: var(--nes-gold);
+    animation: blink-fast 0.5s infinite;
+    margin-bottom: 12px;
+  }
+
+  /* Leaderboard */
+  .lb-title {
+    font-size: 16px;
+    color: var(--nes-gold);
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 0 #c4960f;
+  }
+
+  .lb-table {
+    width: 100%;
+    max-width: 380px;
+    margin-bottom: 20px;
+  }
+
+  .lb-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: 9px;
+    color: var(--nes-white);
+    border-bottom: 1px dashed #444;
+  }
+
+  .lb-row.header {
+    color: var(--nes-gray);
+    font-size: 7px;
+    border-bottom: 2px solid #555;
+  }
+
+  .lb-row .rank { width: 30px; color: var(--nes-gold); }
+  .lb-row .rank.first { color: #ffd700; }
+  .lb-row .rank.second { color: #c0c0c0; }
+  .lb-row .rank.third { color: #cd7f32; }
+  .lb-row .name { flex: 1; text-align: left; margin-left: 10px; }
+  .lb-row .lb-score { width: 80px; text-align: right; color: var(--nes-green); }
+  .lb-row .lb-level { width: 50px; text-align: right; }
+
+  .lb-row.highlight {
+    background: rgba(245, 200, 66, 0.15);
+    color: var(--nes-gold);
+  }
+  .lb-row.highlight .lb-score { color: var(--nes-gold); }
+
+  /* Controls hint */
+  .controls-hint {
+    font-size: 7px;
+    color: var(--nes-gray);
+    margin-top: 20px;
+    text-align: center;
+    line-height: 2;
+  }
+
+  /* Pause overlay */
+  #pause-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 5;
+    border-radius: 14px;
+  }
+
+  #pause-overlay .pause-text {
+    font-size: 20px;
+    color: var(--nes-white);
+    animation: blink-fast 1s infinite;
+  }
+
+  #pause-overlay .pause-hint {
+    font-size: 8px;
+    color: var(--nes-gray);
+    margin-top: 16px;
+  }
+
+  /* Star particles */
+  .star-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--nes-gold);
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  /* Mobile controls */
+  #mobile-controls {
+    display: none;
+    justify-content: center;
+    margin-top: 12px;
+    gap: 4px;
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: 44px 44px 44px;
+    grid-template-rows: 44px 44px 44px;
+    gap: 2px;
+  }
+
+  .dpad-btn {
+    background: #444;
+    border: 2px solid #666;
+    border-radius: 6px;
+    color: var(--nes-white);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .dpad-btn:active {
+    background: #666;
+    border-color: var(--nes-gold);
+  }
+
+  .dpad-center {
+    background: #333;
+    border: 2px solid #555;
+    border-radius: 50%;
+  }
+
+  .mobile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-left: 30px;
+    justify-content: center;
+  }
+
+  .action-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--nes-red);
+    border: 3px solid #c0392b;
+    color: white;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .action-btn.b-btn {
+    background: var(--nes-gold);
+    border-color: #c4960f;
+  }
+
+  @media (max-width: 600px) {
+    #mobile-controls { display: flex; }
+    #game-wrapper { padding: 10px; border-radius: 12px; }
+    .title-logo { font-size: 14px; }
+    .controls-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <div id="hud">
+    <div class="hud-item">
+      <span class="hud-label">SCORE</span>
+      <span class="hud-value" id="hud-score">0</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">LEVEL</span>
+      <span class="hud-value" id="hud-level">1</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">SPEED</span>
+      <span class="hud-value" id="hud-speed">--</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">MULTI</span>
+      <span class="hud-value" id="hud-multi">x1</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">HI-SCORE</span>
+      <span class="hud-value" id="hud-hiscore">0</span>
+    </div>
+  </div>
+
+  <canvas id="game-canvas" width="480" height="480"></canvas>
+
+  <!-- Title Screen -->
+  <div id="title-screen">
+    <div class="title-logo">SUPER<br>SNAKE<br>BROS.</div>
+    <div class="title-sub">~ NINTENDO EDITION ~</div>
+    <button class="menu-item selected" id="btn-start" onclick="startGame()">START GAME</button>
+    <button class="menu-item" id="btn-leaderboard" onclick="showLeaderboard()">LEADERBOARD</button>
+    <div class="controls-hint">
+      ARROW KEYS / WASD - MOVE<br>
+      P / ESC - PAUSE<br>
+      ENTER / SPACE - SELECT
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameover-screen" class="hidden">
+    <div class="game-over-title">GAME OVER</div>
+    <div class="final-score" id="final-score">0</div>
+    <div class="final-detail" id="final-detail"></div>
+    <div class="new-record hidden" id="new-record-badge">★ NEW RECORD! ★</div>
+    <button class="menu-item selected" onclick="startGame()">RETRY</button>
+    <button class="menu-item" onclick="showLeaderboard()">LEADERBOARD</button>
+    <button class="menu-item" onclick="showTitle()">TITLE</button>
+  </div>
+
+  <!-- Leaderboard Screen -->
+  <div id="leaderboard-screen" class="hidden">
+    <div class="lb-title">★ LEADERBOARD ★</div>
+    <div class="lb-table" id="lb-table"></div>
+    <button class="menu-item selected" onclick="showTitle()">BACK</button>
+  </div>
+
+  <!-- Pause Overlay -->
+  <div id="pause-overlay" class="hidden">
+    <div class="pause-text">PAUSED</div>
+    <div class="pause-hint">PRESS P OR ESC TO RESUME</div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls">
+    <div class="dpad">
+      <div></div>
+      <button class="dpad-btn" ontouchstart="handleMobileInput('up')" onclick="handleMobileInput('up')">▲</button>
+      <div></div>
+      <button class="dpad-btn" ontouchstart="handleMobileInput('left')" onclick="handleMobileInput('left')">◀</button>
+      <div class="dpad-center"></div>
+      <button class="dpad-btn" ontouchstart="handleMobileInput('right')" onclick="handleMobileInput('right')">▶</button>
+      <div></div>
+      <button class="dpad-btn" ontouchstart="handleMobileInput('down')" onclick="handleMobileInput('down')">▼</button>
+      <div></div>
+    </div>
+    <div class="mobile-actions">
+      <button class="action-btn" onclick="handleMobileAction()">A</button>
+      <button class="action-btn b-btn" onclick="togglePause()">B</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SUPER SNAKE BROS. - Nintendo Style Snake Game
+// ============================================================
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// Grid settings
+const GRID_SIZE = 20;
+const COLS = canvas.width / GRID_SIZE;
+const ROWS = canvas.height / GRID_SIZE;
+
+// Game state
+let snake = [];
+let direction = { x: 1, y: 0 };
+let nextDirection = { x: 1, y: 0 };
+let food = null;
+let powerUp = null;
+let score = 0;
+let level = 1;
+let gameRunning = false;
+let gamePaused = false;
+let gameLoopId = null;
+let lastMoveTime = 0;
+let moveInterval = 150; // ms per move
+let baseInterval = 150;
+
+// Smooth movement interpolation
+let snakeInterp = 0; // 0 to 1, interpolation progress
+let prevSnake = [];
+
+// Power-up state
+let speedBoostTimer = 0;
+let scoreMultiplier = 1;
+let scoreMultiplierTimer = 0;
+const POWERUP_DURATION = 8000; // 8 seconds
+
+// Particles
+let particles = [];
+
+// Score tracking
+let foodEaten = 0;
+let highScore = 0;
+
+// Animation
+let animFrame = 0;
+let bgScrollY = 0;
+
+// Menu state
+let menuIndex = 0;
+
+// Audio context for retro sounds
+let audioCtx = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(type) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime;
+
+  switch (type) {
+    case 'eat':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(587, now);
+      osc.frequency.setValueAtTime(784, now + 0.05);
+      osc.frequency.setValueAtTime(1047, now + 0.1);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
+      break;
+    case 'powerup':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(523, now);
+      osc.frequency.setValueAtTime(659, now + 0.08);
+      osc.frequency.setValueAtTime(784, now + 0.16);
+      osc.frequency.setValueAtTime(1047, now + 0.24);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.start(now);
+      osc.stop(now + 0.4);
+      break;
+    case 'die':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.start(now);
+      osc.stop(now + 0.5);
+      break;
+    case 'levelup':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(554, now + 0.1);
+      osc.frequency.setValueAtTime(659, now + 0.2);
+      osc.frequency.setValueAtTime(880, now + 0.3);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.start(now);
+      osc.stop(now + 0.5);
+      break;
+    case 'select':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(660, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
+      break;
+    case 'move':
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(220, now);
+      gain.gain.setValueAtTime(0.03, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      osc.start(now);
+      osc.stop(now + 0.03);
+      break;
+  }
+}
+
+// ============================================================
+// LEADERBOARD
+// ============================================================
+const LB_KEY = 'supersnake_leaderboard';
+const MAX_LB = 10;
+
+function getLeaderboard() {
+  try {
+    const data = localStorage.getItem(LB_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function saveToLeaderboard(score, level, length) {
+  const lb = getLeaderboard();
+  const entry = {
+    score,
+    level,
+    length,
+    date: new Date().toLocaleDateString('zh-CN'),
+  };
+  lb.push(entry);
+  lb.sort((a, b) => b.score - a.score);
+  if (lb.length > MAX_LB) lb.length = MAX_LB;
+  localStorage.setItem(LB_KEY, JSON.stringify(lb));
+
+  // Check if this is a new high score
+  highScore = lb[0].score;
+  return lb[0].score === score;
+}
+
+function getHighScore() {
+  const lb = getLeaderboard();
+  return lb.length > 0 ? lb[0].score : 0;
+}
+
+// ============================================================
+// PARTICLES (Nintendo "coin" sparkle effect)
+// ============================================================
+function spawnParticles(x, y, color, count = 8) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = 1.5 + Math.random() * 2.5;
+    particles.push({
+      x: x * GRID_SIZE + GRID_SIZE / 2,
+      y: y * GRID_SIZE + GRID_SIZE / 2,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1.0,
+      color,
+      size: 2 + Math.random() * 3,
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.08; // gravity
+    p.life -= dt * 2.5;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    const s = p.size * p.life;
+    ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// GAME BOARD RENDERING (Game Boy / Nintendo style)
+// ============================================================
+const BG_COLORS = {
+  light: '#9bbc0f',
+  medium: '#8bac0f',
+  dark: '#306230',
+  darkest: '#0f380f',
+};
+
+function drawBackground() {
+  // Classic Game Boy green with checkerboard
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      ctx.fillStyle = (x + y) % 2 === 0 ? BG_COLORS.light : BG_COLORS.medium;
+      ctx.fillRect(x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+    }
+  }
+
+  // Subtle border decoration
+  ctx.strokeStyle = BG_COLORS.dark;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+}
+
+// ============================================================
+// SNAKE RENDERING
+// ============================================================
+function drawSnake() {
+  const t = snakeInterp;
+
+  for (let i = 0; i < snake.length; i++) {
+    const curr = snake[i];
+    const prev = prevSnake[i] || curr;
+
+    // Interpolate position for smooth movement
+    let drawX = prev.x + (curr.x - prev.x) * t;
+    let drawY = prev.y + (curr.y - prev.y) * t;
+
+    // Handle wrap-around interpolation
+    if (Math.abs(curr.x - prev.x) > 2) drawX = curr.x;
+    if (Math.abs(curr.y - prev.y) > 2) drawY = curr.y;
+
+    const px = drawX * GRID_SIZE;
+    const py = drawY * GRID_SIZE;
+
+    if (i === 0) {
+      // Head - slightly larger, with eyes
+      const headColor = speedBoostTimer > 0 ? '#3498db' : '#2d5e1e';
+      ctx.fillStyle = headColor;
+      roundRect(ctx, px + 1, py + 1, GRID_SIZE - 2, GRID_SIZE - 2, 4);
+      ctx.fill();
+
+      // Highlight
+      ctx.fillStyle = speedBoostTimer > 0 ? '#5dade2' : '#4a8c3f';
+      roundRect(ctx, px + 2, py + 2, GRID_SIZE - 6, GRID_SIZE / 2 - 2, 3);
+      ctx.fill();
+
+      // Eyes
+      drawEyes(px, py, direction);
+    } else {
+      // Body segments with gradient
+      const bodyProgress = i / snake.length;
+      const r = Math.floor(45 + bodyProgress * 20);
+      const g = Math.floor(140 - bodyProgress * 40);
+      const b = Math.floor(30 + bodyProgress * 10);
+
+      if (scoreMultiplierTimer > 0) {
+        // Purple glow when multiplier active
+        const pulse = Math.sin(animFrame * 0.15) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(155, 89, 182, ${pulse})`;
+      } else {
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      }
+      roundRect(ctx, px + 2, py + 2, GRID_SIZE - 4, GRID_SIZE - 4, 3);
+      ctx.fill();
+
+      // Body segment highlight
+      ctx.fillStyle = `rgba(255, 255, 255, 0.15)`;
+      roundRect(ctx, px + 3, py + 3, GRID_SIZE - 8, GRID_SIZE / 2 - 3, 2);
+      ctx.fill();
+
+      // Segment connector
+      if (i < snake.length - 1) {
+        const next = snake[i + 1];
+        const nPrev = prevSnake[i + 1] || next;
+        let nDrawX = nPrev.x + (next.x - nPrev.x) * t;
+        let nDrawY = nPrev.y + (next.y - nPrev.y) * t;
+        if (Math.abs(next.x - nPrev.x) > 2) nDrawX = next.x;
+        if (Math.abs(next.y - nPrev.y) > 2) nDrawY = next.y;
+
+        const dx = nDrawX - drawX;
+        const dy = nDrawY - drawY;
+        if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+          ctx.fillRect(
+            px + GRID_SIZE / 2 - 6 + dx * 4,
+            py + GRID_SIZE / 2 - 6 + dy * 4,
+            12, 12
+          );
+        }
+      }
+    }
+  }
+}
+
+function drawEyes(px, py, dir) {
+  const eyeSize = 4;
+  const pupilSize = 2;
+  let lx, ly, rx, ry;
+
+  if (dir.x === 1) { // right
+    lx = px + 13; ly = py + 5;
+    rx = px + 13; ry = py + 13;
+  } else if (dir.x === -1) { // left
+    lx = px + 5; ly = py + 5;
+    rx = px + 5; ry = py + 13;
+  } else if (dir.y === -1) { // up
+    lx = px + 5; ly = py + 5;
+    rx = px + 13; ry = py + 5;
+  } else { // down
+    lx = px + 5; ly = py + 13;
+    rx = px + 13; ry = py + 13;
+  }
+
+  // Eye whites
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(lx, ly, eyeSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(rx, ry, eyeSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pupils
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(lx + dir.x, ly + dir.y, pupilSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(rx + dir.x, ry + dir.y, pupilSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// ============================================================
+// FOOD & POWER-UP RENDERING
+// ============================================================
+function drawFood() {
+  if (!food) return;
+  const px = food.x * GRID_SIZE;
+  const py = food.y * GRID_SIZE;
+  const bounce = Math.sin(animFrame * 0.1) * 2;
+
+  // Apple / mushroom style
+  ctx.save();
+  ctx.translate(px + GRID_SIZE / 2, py + GRID_SIZE / 2 + bounce);
+
+  // Body (red apple)
+  ctx.fillStyle = '#e74c3c';
+  ctx.beginPath();
+  ctx.arc(0, 1, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Highlight
+  ctx.fillStyle = '#ff6b6b';
+  ctx.beginPath();
+  ctx.arc(-2, -1, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Stem
+  ctx.fillStyle = '#6b4226';
+  ctx.fillRect(-1, -8, 2, 5);
+
+  // Leaf
+  ctx.fillStyle = '#27ae60';
+  ctx.beginPath();
+  ctx.ellipse(3, -6, 4, 2, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPowerUp() {
+  if (!powerUp) return;
+  const px = powerUp.x * GRID_SIZE;
+  const py = powerUp.y * GRID_SIZE;
+  const float = Math.sin(animFrame * 0.08) * 3;
+  const glow = Math.sin(animFrame * 0.12) * 0.3 + 0.7;
+
+  ctx.save();
+  ctx.translate(px + GRID_SIZE / 2, py + GRID_SIZE / 2 + float);
+
+  // Glow effect
+  ctx.globalAlpha = glow * 0.3;
+  ctx.fillStyle = powerUp.type === 'speed' ? '#3498db' : '#9b59b6';
+  ctx.beginPath();
+  ctx.arc(0, 0, 12, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
+
+  if (powerUp.type === 'speed') {
+    // Lightning bolt (speed boost) - Super Star style
+    ctx.fillStyle = '#f5c842';
+    ctx.strokeStyle = '#c4960f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-2, -8);
+    ctx.lineTo(4, -2);
+    ctx.lineTo(0, -1);
+    ctx.lineTo(3, 8);
+    ctx.lineTo(-4, 1);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Sparkle
+    const sparkle = Math.floor(animFrame * 0.2) % 2 === 0;
+    if (sparkle) {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-6, -1, 2, 2);
+      ctx.fillRect(5, -4, 2, 2);
+    }
+  } else {
+    // Star (score multiplier) - Super Mushroom style
+    ctx.fillStyle = '#9b59b6';
+    ctx.beginPath();
+    drawStar(ctx, 0, 0, 5, 8, 4);
+    ctx.fill();
+
+    ctx.fillStyle = '#d5a6e6';
+    ctx.beginPath();
+    drawStar(ctx, 0, -1, 5, 5, 2.5);
+    ctx.fill();
+
+    // "x2" text
+    ctx.fillStyle = '#fff';
+    ctx.font = '6px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText('x2', 0, 3);
+  }
+
+  // Blinking timer bar if power-up has limited lifetime
+  if (powerUp.spawnTime) {
+    const elapsed = Date.now() - powerUp.spawnTime;
+    const remaining = 1 - elapsed / 12000;
+    if (remaining < 0.3) {
+      ctx.globalAlpha = Math.floor(animFrame * 0.3) % 2 === 0 ? 1 : 0.2;
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawStar(ctx, cx, cy, spikes, outerR, innerR) {
+  let rot = -Math.PI / 2;
+  const step = Math.PI / spikes;
+  ctx.moveTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+  for (let i = 0; i < spikes; i++) {
+    ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+    rot += step;
+    ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+    rot += step;
+  }
+  ctx.closePath();
+}
+
+// ============================================================
+// SCORE POPUP ANIMATION
+// ============================================================
+let scorePopups = [];
+
+function spawnScorePopup(x, y, value) {
+  scorePopups.push({
+    x: x * GRID_SIZE + GRID_SIZE / 2,
+    y: y * GRID_SIZE,
+    value: `+${value}`,
+    life: 1.0,
+    color: value >= 20 ? '#f5c842' : '#fff',
+  });
+}
+
+function updateScorePopups(dt) {
+  for (let i = scorePopups.length - 1; i >= 0; i--) {
+    const p = scorePopups[i];
+    p.y -= 1.2;
+    p.life -= dt * 1.8;
+    if (p.life <= 0) scorePopups.splice(i, 1);
+  }
+}
+
+function drawScorePopups() {
+  for (const p of scorePopups) {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.font = '10px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.value, p.x, p.y);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillText(p.value, p.x + 1, p.y + 1);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// LEVEL-UP FLASH
+// ============================================================
+let levelUpFlash = 0;
+let levelUpText = '';
+
+function triggerLevelUp() {
+  levelUpFlash = 1.0;
+  levelUpText = `LEVEL ${level}`;
+  playSound('levelup');
+}
+
+function drawLevelUpFlash() {
+  if (levelUpFlash <= 0) return;
+  ctx.save();
+  // Flash
+  ctx.fillStyle = `rgba(255, 255, 255, ${levelUpFlash * 0.4})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Text
+  ctx.globalAlpha = levelUpFlash;
+  ctx.fillStyle = '#f5c842';
+  ctx.font = '20px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.fillText(levelUpText, canvas.width / 2, canvas.height / 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillText(levelUpText, canvas.width / 2 + 2, canvas.height / 2 + 2);
+  ctx.restore();
+}
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function resetGame() {
+  const startX = Math.floor(COLS / 2);
+  const startY = Math.floor(ROWS / 2);
+  snake = [
+    { x: startX, y: startY },
+    { x: startX - 1, y: startY },
+    { x: startX - 2, y: startY },
+  ];
+  prevSnake = snake.map(s => ({ ...s }));
+  direction = { x: 1, y: 0 };
+  nextDirection = { x: 1, y: 0 };
+  score = 0;
+  level = 1;
+  foodEaten = 0;
+  moveInterval = baseInterval;
+  speedBoostTimer = 0;
+  scoreMultiplier = 1;
+  scoreMultiplierTimer = 0;
+  particles = [];
+  scorePopups = [];
+  levelUpFlash = 0;
+  powerUp = null;
+  snakeInterp = 1;
+
+  spawnFood();
+  updateHUD();
+}
+
+function spawnFood() {
+  let pos;
+  do {
+    pos = {
+      x: Math.floor(Math.random() * COLS),
+      y: Math.floor(Math.random() * ROWS),
+    };
+  } while (isOccupied(pos.x, pos.y));
+  food = pos;
+}
+
+function spawnPowerUp() {
+  if (powerUp) return;
+  let pos;
+  do {
+    pos = {
+      x: Math.floor(Math.random() * COLS),
+      y: Math.floor(Math.random() * ROWS),
+    };
+  } while (isOccupied(pos.x, pos.y) || (food && pos.x === food.x && pos.y === food.y));
+
+  powerUp = {
+    ...pos,
+    type: Math.random() < 0.5 ? 'speed' : 'multiplier',
+    spawnTime: Date.now(),
+  };
+}
+
+function isOccupied(x, y) {
+  return snake.some(s => s.x === x && s.y === y);
+}
+
+function moveSnake() {
+  // Save previous positions for interpolation
+  prevSnake = snake.map(s => ({ ...s }));
+  snakeInterp = 0;
+
+  // Apply direction
+  direction = { ...nextDirection };
+
+  const head = snake[0];
+  let newHead = {
+    x: head.x + direction.x,
+    y: head.y + direction.y,
+  };
+
+  // Wrap around (Nintendo style - no wall death)
+  if (newHead.x < 0) newHead.x = COLS - 1;
+  if (newHead.x >= COLS) newHead.x = 0;
+  if (newHead.y < 0) newHead.y = ROWS - 1;
+  if (newHead.y >= ROWS) newHead.y = 0;
+
+  // Self collision
+  if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
+    gameOver();
+    return;
+  }
+
+  snake.unshift(newHead);
+
+  // Check food
+  let ate = false;
+  if (food && newHead.x === food.x && newHead.y === food.y) {
+    ate = true;
+    const points = 10 * scoreMultiplier;
+    score += points;
+    foodEaten++;
+    spawnScorePopup(newHead.x, newHead.y, points);
+    spawnParticles(newHead.x, newHead.y, '#e74c3c', 10);
+    playSound('eat');
+
+    // Level up every 5 food
+    if (foodEaten % 5 === 0) {
+      level++;
+      // Increase speed
+      baseInterval = Math.max(60, 150 - (level - 1) * 8);
+      if (speedBoostTimer <= 0) {
+        moveInterval = baseInterval;
+      }
+      triggerLevelUp();
+    }
+
+    // Maybe spawn power-up (30% chance, after level 2)
+    if (!powerUp && level >= 2 && Math.random() < 0.3) {
+      spawnPowerUp();
+    }
+
+    spawnFood();
+  } else {
+    snake.pop(); // remove tail
+  }
+
+  // Check power-up
+  if (powerUp && newHead.x === powerUp.x && newHead.y === powerUp.y) {
+    playSound('powerup');
+    spawnParticles(newHead.x, newHead.y,
+      powerUp.type === 'speed' ? '#3498db' : '#9b59b6', 15);
+
+    if (powerUp.type === 'speed') {
+      speedBoostTimer = POWERUP_DURATION;
+      moveInterval = Math.max(40, baseInterval * 0.5);
+    } else {
+      scoreMultiplierTimer = POWERUP_DURATION;
+      scoreMultiplier = 2;
+    }
+    powerUp = null;
+  }
+
+  // Remove expired power-up
+  if (powerUp && Date.now() - powerUp.spawnTime > 12000) {
+    spawnParticles(powerUp.x, powerUp.y, '#888', 6);
+    powerUp = null;
+  }
+
+  updateHUD();
+}
+
+function updatePowerUpTimers(dt) {
+  const dtMs = dt * 1000;
+  if (speedBoostTimer > 0) {
+    speedBoostTimer -= dtMs;
+    if (speedBoostTimer <= 0) {
+      speedBoostTimer = 0;
+      moveInterval = baseInterval;
+    }
+  }
+  if (scoreMultiplierTimer > 0) {
+    scoreMultiplierTimer -= dtMs;
+    if (scoreMultiplierTimer <= 0) {
+      scoreMultiplierTimer = 0;
+      scoreMultiplier = 1;
+    }
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = score;
+  document.getElementById('hud-level').textContent = level;
+
+  const speedEl = document.getElementById('hud-speed');
+  if (speedBoostTimer > 0) {
+    speedEl.textContent = `${Math.ceil(speedBoostTimer / 1000)}s`;
+    speedEl.classList.add('speed-active');
+  } else {
+    speedEl.textContent = '--';
+    speedEl.classList.remove('speed-active');
+  }
+
+  const multiEl = document.getElementById('hud-multi');
+  if (scoreMultiplierTimer > 0) {
+    multiEl.textContent = `x${scoreMultiplier} ${Math.ceil(scoreMultiplierTimer / 1000)}s`;
+    multiEl.classList.add('multi-active');
+  } else {
+    multiEl.textContent = 'x1';
+    multiEl.classList.remove('multi-active');
+  }
+
+  document.getElementById('hud-hiscore').textContent = Math.max(highScore, score);
+}
+
+function gameOver() {
+  gameRunning = false;
+  playSound('die');
+
+  // Death animation particles
+  for (const seg of snake) {
+    spawnParticles(seg.x, seg.y, '#e74c3c', 4);
+  }
+
+  const isRecord = saveToLeaderboard(score, level, snake.length);
+
+  setTimeout(() => {
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('final-detail').textContent =
+      `LEVEL ${level}  ·  LENGTH ${snake.length}  ·  ${foodEaten} APPLES`;
+
+    const badge = document.getElementById('new-record-badge');
+    if (isRecord) {
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    document.getElementById('gameover-screen').classList.remove('hidden');
+  }, 800);
+}
+
+// ============================================================
+// MAIN GAME LOOP
+// ============================================================
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  gameLoopId = requestAnimationFrame(gameLoop);
+
+  if (!lastTime) lastTime = timestamp;
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // cap dt
+  lastTime = timestamp;
+
+  animFrame++;
+
+  if (gameRunning && !gamePaused) {
+    // Update power-up timers
+    updatePowerUpTimers(dt);
+
+    // Move snake at fixed interval
+    lastMoveTime += dt * 1000;
+    if (lastMoveTime >= moveInterval) {
+      moveSnake();
+      lastMoveTime = 0;
+    }
+
+    // Smooth interpolation
+    snakeInterp = Math.min(1, snakeInterp + (dt * 1000) / moveInterval);
+  }
+
+  // Update visual effects (even when paused for particles to finish)
+  updateParticles(dt);
+  updateScorePopups(dt);
+  if (levelUpFlash > 0) levelUpFlash -= dt * 1.5;
+
+  // Render
+  drawBackground();
+  drawFood();
+  drawPowerUp();
+  if (gameRunning || particles.length > 0) {
+    drawSnake();
+  }
+  drawParticles();
+  drawScorePopups();
+  drawLevelUpFlash();
+}
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  initAudio();
+
+  const key = e.key.toLowerCase();
+
+  // Game controls
+  if (gameRunning && !gamePaused) {
+    switch (key) {
+      case 'arrowup': case 'w':
+        if (direction.y !== 1) nextDirection = { x: 0, y: -1 };
+        e.preventDefault();
+        break;
+      case 'arrowdown': case 's':
+        if (direction.y !== -1) nextDirection = { x: 0, y: 1 };
+        e.preventDefault();
+        break;
+      case 'arrowleft': case 'a':
+        if (direction.x !== 1) nextDirection = { x: -1, y: 0 };
+        e.preventDefault();
+        break;
+      case 'arrowright': case 'd':
+        if (direction.x !== -1) nextDirection = { x: 1, y: 0 };
+        e.preventDefault();
+        break;
+    }
+  }
+
+  // Pause
+  if ((key === 'p' || key === 'escape') && gameRunning) {
+    togglePause();
+    e.preventDefault();
+  }
+
+  // Menu navigation
+  if (!gameRunning) {
+    if (key === 'enter' || key === ' ') {
+      handleMenuSelect();
+      e.preventDefault();
+    }
+  }
+});
+
+function handleMobileInput(dir) {
+  initAudio();
+  if (!gameRunning) {
+    handleMenuSelect();
+    return;
+  }
+  switch (dir) {
+    case 'up':
+      if (direction.y !== 1) nextDirection = { x: 0, y: -1 }; break;
+    case 'down':
+      if (direction.y !== -1) nextDirection = { x: 0, y: 1 }; break;
+    case 'left':
+      if (direction.x !== 1) nextDirection = { x: -1, y: 0 }; break;
+    case 'right':
+      if (direction.x !== -1) nextDirection = { x: 1, y: 0 }; break;
+  }
+}
+
+function handleMobileAction() {
+  initAudio();
+  if (!gameRunning) {
+    handleMenuSelect();
+  }
+}
+
+function handleMenuSelect() {
+  const titleScreen = document.getElementById('title-screen');
+  const gameoverScreen = document.getElementById('gameover-screen');
+  const lbScreen = document.getElementById('leaderboard-screen');
+
+  if (!titleScreen.classList.contains('hidden')) {
+    playSound('select');
+    startGame();
+  } else if (!gameoverScreen.classList.contains('hidden')) {
+    playSound('select');
+    startGame();
+  } else if (!lbScreen.classList.contains('hidden')) {
+    playSound('select');
+    showTitle();
+  }
+}
+
+function togglePause() {
+  if (!gameRunning) return;
+  gamePaused = !gamePaused;
+  document.getElementById('pause-overlay').classList.toggle('hidden', !gamePaused);
+  playSound('select');
+}
+
+// ============================================================
+// SCREEN MANAGEMENT
+// ============================================================
+function hideAllScreens() {
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  document.getElementById('leaderboard-screen').classList.add('hidden');
+  document.getElementById('pause-overlay').classList.add('hidden');
+}
+
+function showTitle() {
+  hideAllScreens();
+  gameRunning = false;
+  gamePaused = false;
+  document.getElementById('title-screen').classList.remove('hidden');
+  highScore = getHighScore();
+  document.getElementById('hud-hiscore').textContent = highScore;
+}
+
+function startGame() {
+  initAudio();
+  hideAllScreens();
+  resetGame();
+  gameRunning = true;
+  gamePaused = false;
+  lastMoveTime = 0;
+  lastTime = 0;
+  playSound('select');
+}
+
+function showLeaderboard() {
+  hideAllScreens();
+  gameRunning = false;
+  const lb = getLeaderboard();
+  const table = document.getElementById('lb-table');
+
+  let html = `
+    <div class="lb-row header">
+      <span class="rank">#</span>
+      <span class="name">DATE</span>
+      <span class="lb-score">SCORE</span>
+      <span class="lb-level">LV</span>
+    </div>
+  `;
+
+  if (lb.length === 0) {
+    html += `<div class="lb-row"><span style="color:#888;font-size:8px;">NO RECORDS YET</span></div>`;
+  }
+
+  for (let i = 0; i < lb.length; i++) {
+    const e = lb[i];
+    const rankClass = i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : '';
+    const medals = ['🥇', '🥈', '🥉'];
+    const rankText = i < 3 ? medals[i] : `${i + 1}`;
+    html += `
+      <div class="lb-row">
+        <span class="rank ${rankClass}">${rankText}</span>
+        <span class="name">${e.date}</span>
+        <span class="lb-score">${e.score}</span>
+        <span class="lb-level">${e.level}</span>
+      </div>
+    `;
+  }
+
+  table.innerHTML = html;
+  document.getElementById('leaderboard-screen').classList.remove('hidden');
+  playSound('select');
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ============================================================
+// SWIPE SUPPORT
+// ============================================================
+let touchStartX = 0;
+let touchStartY = 0;
+
+canvas.addEventListener('touchstart', (e) => {
+  initAudio();
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  if (!gameRunning || gamePaused) {
+    handleMenuSelect();
+    return;
+  }
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+
+  if (Math.max(absDx, absDy) < 20) return; // too small
+
+  if (absDx > absDy) {
+    if (dx > 0 && direction.x !== -1) nextDirection = { x: 1, y: 0 };
+    else if (dx < 0 && direction.x !== 1) nextDirection = { x: -1, y: 0 };
+  } else {
+    if (dy > 0 && direction.y !== -1) nextDirection = { x: 0, y: 1 };
+    else if (dy < 0 && direction.y !== 1) nextDirection = { x: 0, y: -1 };
+  }
+  e.preventDefault();
+}, { passive: false });
+
+// ============================================================
+// INIT
+// ============================================================
+highScore = getHighScore();
+document.getElementById('hud-hiscore').textContent = highScore;
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
